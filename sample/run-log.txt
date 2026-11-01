@@ -1,0 +1,11 @@
+run 20261101-175206-c137: 1,000 calls on claude-haiku-5-5 (200 items x 5)
+
+run 20261101-175206-c137 (complete)
+  calls           1000 (0 failed), cost $0.0919
+  Fleiss kappa    0.953
+  items flipped   10 of 200 (5.0%)
+  single run      44.3%  (95% of reruns 43.0% to 45.5%, 2.5 points)
+  majority of 5   44.4%  (95% of reruns 43.5% to 45.5%, 2.0 points)
+  calls per item for a 2-point interval: 5
+
+Next: jj report 20261101-175206-c137

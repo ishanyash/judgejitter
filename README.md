@@ -100,7 +100,24 @@ A run can be named with `--name` and referred to by name, by id, by an id prefix
 The sample judges 200 [TruthfulQA](https://github.com/sylinrl/TruthfulQA) questions (Apache-2.0). Each item has one candidate answer, picked at random from the dataset's correct or incorrect answers, and the dataset's best answer as the reference. The judge prompt is [examples/truthfulqa/judge.txt](examples/truthfulqa/judge.txt) and the items are built by [examples/truthfulqa/make_items.py](examples/truthfulqa/make_items.py).
 
 <!-- sample-numbers:start -->
-The sample has not been run yet.
+Measured 2026-11-01, run `20261101-175206-c137`: `claude-haiku-5-5` as judge, API version 2026-10-21, no sampling parameters (model default), structured JSON output, 200 TruthfulQA items x 5 calls.
+
+| Measure | Result |
+| --- | --- |
+| Calls | 1,000 (0 failed or unreadable) |
+| Fleiss' kappa (self-agreement) | 0.953 |
+| Items with all 5 verdicts the same | 190 of 200 (95.0%) |
+| Items that flipped at least once | 10 of 200 (5.0%) |
+| Mean flip rate | 1.3% |
+| The 5 single runs scored | 45.0%, 44.5%, 43.5%, 44.5%, 44.0% |
+| Single run, 95% of reruns | 43.0% to 45.5% (2.5 points) |
+| Majority of 5, 95% of reruns | 43.5% to 45.5% (2.0 points) |
+| Calls per item for a 2-point interval | 5 |
+| With item sampling (200 items), majority of 5 | 37.5% to 51.5% (14.0 points) |
+| Tokens | 426,565 in, 98,489 out |
+| Cost | $0.0919 |
+
+Cost is the token counts the API returned, priced at list price. The raw numbers are in [sample/stats.json](sample/stats.json).
 <!-- sample-numbers:end -->
 
 ## Known limits

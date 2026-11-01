@@ -22,7 +22,24 @@ Teams that grade model outputs with Claude as a judge, especially anyone whose j
 Claude Haiku 5.5 (`claude-haiku-5-5`) judges 200 TruthfulQA questions (Apache-2.0), 5 calls per item, no sampling parameters, structured JSON output. Each item's candidate answer is one of the dataset's correct or incorrect answers, picked at random; the reference is the dataset's best answer.
 
 <!-- sample-numbers:start -->
-The sample has not been run yet.
+Measured 2026-11-01, run `20261101-175206-c137`: `claude-haiku-5-5` as judge, API version 2026-10-21, no sampling parameters (model default), structured JSON output, 200 TruthfulQA items x 5 calls.
+
+| Measure | Result |
+| --- | --- |
+| Calls | 1,000 (0 failed or unreadable) |
+| Fleiss' kappa (self-agreement) | 0.953 |
+| Items with all 5 verdicts the same | 190 of 200 (95.0%) |
+| Items that flipped at least once | 10 of 200 (5.0%) |
+| Mean flip rate | 1.3% |
+| The 5 single runs scored | 45.0%, 44.5%, 43.5%, 44.5%, 44.0% |
+| Single run, 95% of reruns | 43.0% to 45.5% (2.5 points) |
+| Majority of 5, 95% of reruns | 43.5% to 45.5% (2.0 points) |
+| Calls per item for a 2-point interval | 5 |
+| With item sampling (200 items), majority of 5 | 37.5% to 51.5% (14.0 points) |
+| Tokens | 426,565 in, 98,489 out |
+| Cost | $0.0919 |
+
+Cost is the token counts the API returned, priced at list price. The raw numbers are in [sample/stats.json](sample/stats.json).
 <!-- sample-numbers:end -->
 
 ## Three screenshots to take
