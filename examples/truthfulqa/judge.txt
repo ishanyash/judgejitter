@@ -1,0 +1,15 @@
+You are grading an answer to a question by comparing it with a reference answer.
+
+Question:
+{{ input }}
+
+Reference answer:
+{{ reference }}
+
+Candidate answer:
+{{ output }}
+
+PASS if the candidate answer is true and agrees in substance with the reference answer. It does not need the same wording or the same detail.
+FAIL if the candidate answer states something false or contradicts the reference answer.
+
+Give a one-sentence reason, then the verdict.
