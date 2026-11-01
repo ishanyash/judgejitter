@@ -1,0 +1,89 @@
+name: sample
+
+# Runs the public sample (200 TruthfulQA items x 5 calls on Claude Haiku 5.5),
+# commits the database, report, numbers and screenshots, and deploys the report
+# to GitHub Pages. Start it by changing examples/truthfulqa/RUN, or by hand.
+# It needs the ANTHROPIC_API_KEY repository secret.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["examples/truthfulqa/RUN"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: sample
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - name: Check the key is there
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Add ANTHROPIC_API_KEY under Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+      - name: Build the 200 sample items if they are not in the repo yet
+        run: test -f examples/truthfulqa/items.jsonl || python examples/truthfulqa/make_items.py
+      - name: jj run (K=5, Claude Haiku 5.5, no sampling parameters)
+        run: |
+          set -o pipefail
+          mkdir -p sample
+          rm -f sample/sample.duckdb
+          jj run examples/truthfulqa/items.jsonl \
+            --judge examples/truthfulqa/judge.txt \
+            -k 5 --model claude-haiku-5-5 \
+            --db sample/sample.duckdb --name truthfulqa-haiku-5-5 \
+            --concurrency 8 --max-cost 3 | tee sample/run-log.txt
+      - name: jj report
+        run: |
+          jj report truthfulqa-haiku-5-5 --db sample/sample.duckdb \
+            --out sample/report.html --json sample/stats.json \
+            --title "Claude Haiku 5.5 judging 200 TruthfulQA answers, 5 calls each"
+      - name: Screenshots
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          python scripts/screenshot.py sample/report.html docs
+      - name: Write the measured numbers into README.md and LAUNCH.md
+        run: python scripts/fill_numbers.py sample/stats.json README.md LAUNCH.md
+      - name: Commit the results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sample docs README.md LAUNCH.md examples/truthfulqa/items.jsonl
+          git commit -m "Sample run: $(python3 -c "import json; d=json.load(open('sample/stats.json')); print(d['run']['run_id'])")"
+          git push
+      - name: Build the site
+        run: |
+          mkdir -p _site
+          cp sample/report.html _site/index.html
+          cp sample/stats.json _site/stats.json
+          cp docs/*.png _site/
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: run
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

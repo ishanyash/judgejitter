@@ -1,0 +1,118 @@
+name: release
+
+# Publishes to PyPI with trusted publishing whenever main has a version that
+# PyPI does not have yet. Bump `version` in pyproject.toml to release.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: v
+        run: |
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/judgejitter/$VERSION/json")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" = "404" ]; then echo "publish=true" >> "$GITHUB_OUTPUT"; else echo "publish=false" >> "$GITHUB_OUTPUT"; fi
+          echo "version $VERSION, PyPI answered $CODE"
+
+  build:
+    needs: check
+    if: needs.check.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]" build twine
+      - run: pytest -q
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/judgejitter/${{ needs.check.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/* --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes "See CHANGELOG.md. Install with: pip install judgejitter==$VERSION"
+
+  # The done-when check: install from PyPI in a clean environment, then run and report.
+  smoke-from-pypi:
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: pip install judgejitter from PyPI
+        run: |
+          python -m venv /tmp/clean
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            /tmp/clean/bin/pip install --no-cache-dir "judgejitter==$VERSION" && break
+            echo "not on the index yet, waiting"; sleep 30
+          done
+          /tmp/clean/bin/jj --version
+      - name: jj run and jj report on 10 sample items (about a cent)
+        run: |
+          test -f examples/truthfulqa/items.jsonl || python examples/truthfulqa/make_items.py
+          cd /tmp
+          ITEMS="$GITHUB_WORKSPACE/examples/truthfulqa/items.jsonl"
+          JUDGE="$GITHUB_WORKSPACE/examples/truthfulqa/judge.txt"
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "No ANTHROPIC_API_KEY secret: dry run only"
+            /tmp/clean/bin/jj run "$ITEMS" --judge "$JUDGE" --limit 10 -k 3 --dry-run | head -6
+          else
+            /tmp/clean/bin/jj run "$ITEMS" --judge "$JUDGE" --limit 10 -k 3 --db smoke.duckdb --max-cost 0.25
+            /tmp/clean/bin/jj report --db smoke.duckdb --out smoke.html
+            grep -q "Fleiss" smoke.html
+          fi

@@ -1,0 +1,38 @@
+name: pages
+
+# Redeploys the committed sample report when it changes on main.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["sample/report.html", "sample/stats.json", "docs/*.png"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          test -f sample/report.html || { echo "no sample report yet"; exit 1; }
+          mkdir -p _site
+          cp sample/report.html _site/index.html
+          cp sample/stats.json _site/stats.json
+          cp docs/*.png _site/ 2>/dev/null || true
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

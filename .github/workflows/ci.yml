@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests scripts examples
+      - run: pytest -q
+      - name: Dry run on the sample (no key, no cost)
+        run: |
+          test -f examples/truthfulqa/items.jsonl || python examples/truthfulqa/make_items.py
+          jj run examples/truthfulqa/items.jsonl --judge examples/truthfulqa/judge.txt --dry-run --db /tmp/never.duckdb | head -6
+
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - run: test -f examples/truthfulqa/items.jsonl || python examples/truthfulqa/make_items.py
+      - name: Install the wheel in a clean venv and use it
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/clean/bin/jj --version
+          /tmp/clean/bin/jj run "$GITHUB_WORKSPACE/examples/truthfulqa/items.jsonl" \
+            --judge "$GITHUB_WORKSPACE/examples/truthfulqa/judge.txt" --dry-run | head -6
+          if [ -f "$GITHUB_WORKSPACE/sample/sample.duckdb" ]; then
+            /tmp/clean/bin/jj report --db "$GITHUB_WORKSPACE/sample/sample.duckdb" --out /tmp/r.html --json /tmp/r.json
+            grep -q "Fleiss" /tmp/r.html
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
