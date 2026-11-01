@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<meta name="description" content="How stable an LLM judge's verdicts are across repeated calls. Made with JudgeJitter.">
+{% set run = d.run %}{% set tot = d.totals %}{% set ag = d.agreement %}{% set pr = d.pass_rate %}
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ee;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #6e6d68;
+  --rule: #dedcd5;
+  --grid: #e9e7e1;
+  --accent: #2a78d6;
+  --accent-ink: #1c5cab;
+  --font: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --ink-3: #a3a29a;
+    --rule: #3a3a37;
+    --grid: #2c2c2a;
+    --accent: #3987e5;
+    --accent-ink: #86b6ef;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19;
+  --surface-2: #232321;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --ink-3: #a3a29a;
+  --rule: #3a3a37;
+  --grid: #2c2c2a;
+  --accent: #3987e5;
+  --accent-ink: #86b6ef;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 14px/1.6 var(--font);
+  overflow-x: clip;
+}
+main { max-width: 880px; margin: 0 auto; padding: 40px 16px 64px; }
+a { color: var(--accent-ink); text-underline-offset: 3px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { color: var(--ink-3); margin: 0 0 8px; }
+h1 { font-size: 24px; line-height: 1.3; margin: 0 0 12px; font-weight: 600; }
+h2 { font-size: 16px; margin: 48px 0 4px; font-weight: 600; }
+.lede { color: var(--ink-2); margin: 0 0 16px; max-width: 70ch; }
+.meta { color: var(--ink-3); margin: 0; }
+.meta span + span::before { content: " / "; color: var(--rule); }
+.hero { margin: 32px 0 0; padding: 20px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.hero p { margin: 0; font-size: 18px; line-height: 1.5; max-width: 60ch; }
+.hero p + p { margin-top: 8px; font-size: 14px; color: var(--ink-2); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); }
+th { font-weight: 600; color: var(--ink-2); }
+td.num { white-space: nowrap; }
+.headline { table-layout: fixed; }
+.headline td:first-child { color: var(--ink-2); width: 36%; }
+.headline td.num { white-space: normal; overflow-wrap: anywhere; }
+.headline .note { color: var(--ink-3); font-size: 12px; }
+figure { margin: 16px 0 0; }
+figcaption { color: var(--ink-3); font-size: 12px; margin-top: 4px; max-width: 70ch; }
+.chart { width: 100%; height: auto; display: block; overflow: visible; font-family: var(--font); }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .axis { stroke: var(--rule); stroke-width: 1; }
+.chart .bar { fill: var(--accent); }
+.chart .whisker { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; }
+.chart .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.chart .hit { fill: transparent; cursor: default; }
+.chart .hit:hover { fill: var(--ink); fill-opacity: 0.04; }
+.chart text { fill: var(--ink-2); font-size: 12px; }
+.chart .value { fill: var(--ink); font-size: 12px; }
+.chart .muted { fill: var(--ink-3); font-size: 11px; }
+.chart .strong { fill: var(--ink); font-weight: 600; }
+.counts { white-space: nowrap; }
+.item-text { color: var(--ink-2); font-size: 12px; }
+details { margin-top: 4px; }
+summary { cursor: pointer; color: var(--accent-ink); font-size: 12px; }
+details dl { margin: 8px 0 0; font-size: 12px; }
+details dt { color: var(--ink-3); margin-top: 8px; }
+details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.method p { color: var(--ink-2); max-width: 70ch; }
+.method b { color: var(--ink); font-weight: 600; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 12px; }
+#tip {
+  position: fixed; z-index: 10; pointer-events: none; max-width: 300px;
+  background: var(--ink); color: var(--surface); font: 12px/1.5 var(--font);
+  padding: 6px 8px; border-radius: 4px; opacity: 0;
+}
+#tip.on { opacity: 1; }
+@media (max-width: 560px) {
+  main { padding-top: 24px; }
+  h1 { font-size: 20px; }
+  .hero p { font-size: 16px; }
+  .headline td:first-child { width: 40%; }
+  .chart text, .chart .value { font-size: 17px; }
+  .chart .muted { font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<main>
+<p class="eyebrow">JudgeJitter report</p>
+<h1>{{ title }}</h1>
+<p class="meta">
+  <span>{{ run.model }}</span><span>API {{ run.api_version }}</span><span>{{ tot['items'] }} items &times; {{ run.k }} calls</span><span>{{ "pass/fail" if run.scale == "pass-fail" else "1 to 5 score (pass at " ~ run.pass_threshold ~ "+)" }}</span><span>{{ (run.created_at or "")[:10] }}</span>{% if tot.cost_usd is not none %}<span>${{ "%.4f"|format(tot.cost_usd) }}</span>{% endif %}
+</p>
+
+<section class="hero" aria-label="Summary">
+  <p>{{ ag.items_flipped }} of {{ tot['items'] }} items ({{ (ag.items_flipped / tot['items'])|pct }}) did not get the same verdict on all {{ run.k }} calls.</p>
+  <p>On a rerun of the same items, a single run's pass rate lands within a {{ "%.1f"|format(pr.single_run.width_points) }}-point range 95% of the time.
+  {% if pr.recommended_k == 1 %}One call per item already keeps that under {{ pr.target_width_points|round(1) }} points.
+  {% elif pr.recommended_k %}A majority vote of {{ pr.recommended_k }} calls per item brings it under {{ pr.target_width_points|round(1) }} points.
+  {% else %}No majority vote up to 51 calls per item brings it under {{ pr.target_width_points|round(1) }} points.{% endif %}</p>
+</section>
+
+<h2>Headline numbers</h2>
+<div class="scroll">
+<table class="headline">
+  <tbody>
+    <tr><td>Calls</td><td class="num">{{ "{:,}".format(tot.calls) }} ({{ tot.failed_calls }} failed or unreadable)</td></tr>
+    {% if ag.fleiss_kappa is not none or run.scale == "pass-fail" %}
+    <tr><td>Self-agreement (Fleiss' kappa)</td><td class="num">{{ ag.fleiss_kappa|num }}<div class="note">1 means every call agreed; 0 means no better than chance.</div></td></tr>
+    {% endif %}
+    {% if ag.icc_single is not none %}
+    <tr><td>Self-agreement (ICC 1,1)</td><td class="num">{{ ag.icc_single|num }}<div class="note">One-way intraclass correlation of a single call; {{ ag.icc_average|num }} for the mean of {{ run.k }}.</div></td></tr>
+    {% endif %}
+    <tr><td>Items with every call agreeing</td><td class="num">{{ ag.items_all_agree|pct }}</td></tr>
+    <tr><td>Mean flip rate</td><td class="num">{{ ag.mean_flip_rate|pct }}<div class="note">Share of an item's calls that disagree with its majority, averaged over items.</div></td></tr>
+    <tr><td>Pass rate, single run</td><td class="num">{{ pr.single_run.pass_rate|pct }}<div class="note">95% of reruns: {{ pr.single_run.low|pct }} to {{ pr.single_run.high|pct }} ({{ "%.1f"|format(pr.single_run.width_points) }} points)</div></td></tr>
+    <tr><td>Pass rate, majority of {{ pr.majority_of_k.k }}</td><td class="num">{{ pr.majority_of_k.pass_rate|pct }}<div class="note">95% of reruns: {{ pr.majority_of_k.low|pct }} to {{ pr.majority_of_k.high|pct }} ({{ "%.1f"|format(pr.majority_of_k.width_points) }} points)</div></td></tr>
+    <tr><td>Calls per item for a {{ pr.target_width_points|round(1) }}-point interval</td><td class="num">{{ pr.recommended_k if pr.recommended_k else "more than 51" }}</td></tr>
+    <tr><td>The {{ pr.per_repeat|length }} single runs scored</td><td class="num">{% for r in pr.per_repeat %}{{ r|pct }}{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+    <tr><td>With item sampling too</td><td class="num">{{ pr.majority_of_k_with_item_sampling.low|pct }} to {{ pr.majority_of_k_with_item_sampling.high|pct }}<div class="note">Majority of {{ pr.majority_of_k.k }}, items resampled as well: the uncertainty from having only {{ tot['items'] }} items. More calls per item cannot shrink this part.</div></td></tr>
+    <tr><td>Tokens</td><td class="num">{{ "{:,}".format(tot.input_tokens) }} in, {{ "{:,}".format(tot.output_tokens) }} out</td></tr>
+    {% if tot.cost_usd is not none %}<tr><td>Cost</td><td class="num">${{ "%.4f"|format(tot.cost_usd) }}{% if not tot.cost_known_for_every_call %}<div class="note">Some calls had no price.</div>{% endif %}</td></tr>{% endif %}
+  </tbody>
+</table>
+</div>
+
+<h2>Flip rate per item</h2>
+<p class="lede">How many of each item's {{ run.k }} verdicts disagree with that item's most common verdict.</p>
+<figure>
+{{ hist_svg }}
+<figcaption>Bars count items. 0% means all {{ run.k }} calls agreed.</figcaption>
+</figure>
+
+<h2>Single run versus majority vote</h2>
+<p class="lede">The pass rate you would get by rerunning the judge on these same items, for 1, 3, 5 and more calls per item with a majority vote. Dots are the average; lines hold 95% of reruns. Labels give the width in points.</p>
+<figure>
+{{ iv_svg }}
+<figcaption>Items are held fixed here, so only judge noise moves the number. Simulated from each item's observed share of passing calls.</figcaption>
+</figure>
+<div class="scroll">
+<table>
+  <thead><tr><th>Calls</th><th>Pass rate</th><th>95% of reruns</th><th>Width</th></tr></thead>
+  <tbody>
+  {% for b in pr.by_k %}
+    <tr><td class="num">{{ b.k }}{% if b.k == pr.recommended_k %} (recommended){% endif %}</td><td class="num">{{ b.pass_rate|pct }}</td><td class="num">{{ b.low|pct }} to {{ b.high|pct }}</td><td class="num">{{ "%.1f"|format(b.width_points) }} points</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2>The {{ d.unstable_items|length }} least stable items</h2>
+{% if d.unstable_items %}
+<p class="lede">Sorted by flip rate, then by how close the split is. Open an item to see the text and one reason the judge gave for each verdict.</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>Item</th><th>Verdicts</th><th>Flip rate</th><th>Output</th></tr></thead>
+  <tbody>
+  {% for it in d.unstable_items %}
+    <tr>
+      <td class="num">{{ it.id }}</td>
+      <td class="counts">{% for v, n in it.counts.items() %}{{ v }} &times;{{ n }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% if it.n_invalid %}<br>failed &times;{{ it.n_invalid }}{% endif %}</td>
+      <td class="num">{{ it.flip_rate|pct(0) }}</td>
+      <td class="item-text">{{ it.output|clip(140) }}
+        <details>
+          <summary>details</summary>
+          <dl>
+            <dt>Input</dt><dd>{{ it.input|clip(1200) }}</dd>
+            <dt>Output</dt><dd>{{ it.output|clip(1200) }}</dd>
+            {% if it.reference %}<dt>Reference</dt><dd>{{ it.reference|clip(1200) }}</dd>{% endif %}
+            {% for v, reason in it.reasons.items() %}{% if reason %}<dt>A reason for {{ v }}</dt><dd>{{ reason|clip(600) }}</dd>{% endif %}{% endfor %}
+          </dl>
+        </details>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="lede">Every item got the same verdict on every call.</p>
+{% endif %}
+
+<h2>How to read this</h2>
+<div class="method">
+  <p><b>Flip rate.</b> For one item, the share of its calls that disagree with its most common verdict. With 5 calls the possible values are 0%, 20% and 40%.</p>
+  <p><b>Self-agreement.</b> Fleiss' kappa treats each call as a rater and corrects for agreement by chance. For 1 to 5 scores the report uses the one-way intraclass correlation, ICC(1,1), because repeated calls are interchangeable rather than distinct raters. Kappa drops when nearly every verdict is the same; read it next to the flip rate.</p>
+  <p><b>Rerun intervals.</b> Each item's chance of a pass on one call is taken as its observed share of passing calls. The report then simulates 4,000 reruns: it draws k calls per item, takes the majority, and averages over items. The interval holds the middle 95% of those pass rates. Items with no flips in {{ run.k }} calls are treated as never flipping, so the intervals are a lower bound on the noise.</p>
+  <p><b>Recommended calls per item.</b> The smallest odd k whose rerun interval is at most {{ pr.target_width_points|round(1) }} points wide. Odd numbers avoid ties in the vote.</p>
+  <p><b>Settings.</b> Prompt {{ run.prompt_sha }}, {{ "structured JSON output" if run.structured_output else "free-text output" }}{% if run.settings %}, max tokens {{ run.settings.max_tokens }}{% if run.settings.effort %}, effort {{ run.settings.effort }}{% endif %}{% if run.settings.thinking %}, thinking {{ run.settings.thinking }}{% endif %}{% if run.settings.temperature is not none %}, temperature {{ run.settings.temperature }}{% else %}, no sampling parameters (model default){% endif %}{% endif %}. Run {{ run.run_id }}.</p>
+</div>
+
+<footer>
+  Made with <a href="{{ repo_url }}">JudgeJitter</a> {{ version }}. The numbers behind this page are in the JSON block at the end of its source.
+</footer>
+</main>
+<div id="tip" role="status" aria-live="polite"></div>
+<script type="application/json" id="jj-data">{{ json_blob }}</script>
+<script>
+(function () {
+  var tip = document.getElementById("tip");
+  function show(e) {
+    var t = e.target.getAttribute("data-tip");
+    if (!t) return;
+    tip.textContent = t;
+    tip.classList.add("on");
+    move(e);
+  }
+  function move(e) {
+    var x = e.clientX + 12, y = e.clientY + 12;
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - 12;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - 12;
+    tip.style.left = Math.max(8, x) + "px";
+    tip.style.top = Math.max(8, y) + "px";
+  }
+  function hide() { tip.classList.remove("on"); }
+  document.querySelectorAll("[data-tip]").forEach(function (el) {
+    el.addEventListener("pointerenter", show);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerleave", hide);
+  });
+})();
+</script>
+</body>
+</html>
