@@ -88,6 +88,8 @@ def _progress_printer(total: int):
 
 def _print_summary(store: Store, run_id: str, target: float) -> None:
     run_data = store.load(run_id)
+    if not any(v["verdict"] is not None for v in run_data.verdicts):
+        _fail(f"run {run_id} has no readable verdicts yet")
     data = to_dict(run_data, analyse(run_data, target_points=target))
     tot, ag, pr = data["totals"], data["agreement"], data["pass_rate"]
     typer.echo("")
@@ -298,8 +300,8 @@ def report(
         except LookupError as e:
             _fail(str(e))
         data = store.load(run_id)
-    if not data.verdicts:
-        _fail(f"run {run_id} has no verdicts yet")
+    if not any(v["verdict"] is not None for v in data.verdicts):
+        _fail(f"run {run_id} has no readable verdicts yet")
     numbers = to_dict(data, analyse(data, target_points=target), unstable_limit=top)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_html(numbers, title=title), encoding="utf-8")
