@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "judgejitter"
+version = "0.1.0"
+description = "Re-run your LLM-as-judge eval K times and see how stable the verdicts are, which items flip, and how many repeats you need."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Ishan Yash" }]
+keywords = ["llm", "llm-as-judge", "evals", "evaluation", "claude", "anthropic", "reliability", "kappa"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = [
+  "anthropic>=2.0,<3",
+  "duckdb>=1.1",
+  "jinja2>=3.1",
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+jj = "judgejitter.cli:main"
+judgejitter = "judgejitter.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ishanyash/judgejitter"
+Source = "https://github.com/ishanyash/judgejitter"
+Issues = "https://github.com/ishanyash/judgejitter/issues"
+"Sample report" = "https://ishanyash.github.io/judgejitter/"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/judgejitter"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "LICENSE", "CHANGELOG.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008", "UP042"]
