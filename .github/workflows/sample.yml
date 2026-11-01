@@ -2,8 +2,8 @@ name: sample
 
 # Runs the public sample (200 TruthfulQA items x 5 calls on Claude Haiku 5.5),
 # commits the database, report, numbers and screenshots, and deploys the report
-# to GitHub Pages. Start it by changing examples/truthfulqa/RUN, or by hand.
-# It needs the ANTHROPIC_API_KEY repository secret.
+# to GitHub Pages, then starts the PyPI release. Start it by changing
+# examples/truthfulqa/RUN, or by hand. It needs the ANTHROPIC_API_KEY secret.
 
 on:
   workflow_dispatch:
@@ -87,3 +87,14 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  release:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start the PyPI release now that the README has the sample numbers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main

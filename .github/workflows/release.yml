@@ -1,12 +1,14 @@
 name: release
 
-# Publishes to PyPI with trusted publishing whenever main has a version that
-# PyPI does not have yet. Bump `version` in pyproject.toml to release.
+# Publishes to PyPI with trusted publishing. It runs when the sample workflow
+# finishes (so the PyPI page carries the measured sample numbers), when a v*
+# tag is pushed, or by hand. It skips if PyPI already has this version, so to
+# release again, bump `version` in pyproject.toml first.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: read
