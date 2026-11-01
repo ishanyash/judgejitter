@@ -6,8 +6,8 @@ import pytest
 from judgejitter import stats
 
 
-def test_fleiss_kappa_matches_fleiss_1971_example():
-    # The 10 items x 14 raters x 5 categories example used on Wikipedia.
+def test_fleiss_kappa_matches_worked_example():
+    # The 10 subjects x 14 raters x 5 categories worked example on Wikipedia's Fleiss' kappa page.
     counts = np.array(
         [
             [0, 0, 0, 0, 14],

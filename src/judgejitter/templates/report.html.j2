@@ -125,7 +125,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
   <span>{{ run.model }}</span><span>API {{ run.api_version }}</span><span>{{ tot['items'] }} items &times; {{ run.k }} calls</span><span>{{ "pass/fail" if run.scale == "pass-fail" else "1 to 5 score (pass at " ~ run.pass_threshold ~ "+)" }}</span><span>{{ (run.created_at or "")[:10] }}</span>{% if tot.cost_usd is not none %}<span>${{ "%.4f"|format(tot.cost_usd) }}</span>{% endif %}
 </p>
 
-<section class="hero" aria-label="Summary">
+<section class="hero" id="summary" aria-label="Summary">
   <p>{{ ag.items_flipped }} of {{ tot['items'] }} items ({{ (ag.items_flipped / tot['items'])|pct }}) did not get the same verdict on all {{ run.k }} calls.</p>
   <p>On a rerun of the same items, a single run's pass rate lands within a {{ "%.1f"|format(pr.single_run.width_points) }}-point range 95% of the time.
   {% if pr.recommended_k == 1 %}One call per item already keeps that under {{ pr.target_width_points|round(1) }} points.
@@ -133,7 +133,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
   {% else %}No majority vote up to 51 calls per item brings it under {{ pr.target_width_points|round(1) }} points.{% endif %}</p>
 </section>
 
-<h2>Headline numbers</h2>
+<h2 id="numbers">Headline numbers</h2>
 <div class="scroll">
 <table class="headline">
   <tbody>
@@ -157,19 +157,23 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
 </table>
 </div>
 
+<section id="flips">
 <h2>Flip rate per item</h2>
 <p class="lede">How many of each item's {{ run.k }} verdicts disagree with that item's most common verdict.</p>
 <figure>
 {{ hist_svg }}
 <figcaption>Bars count items. 0% means all {{ run.k }} calls agreed.</figcaption>
 </figure>
+</section>
 
+<section id="repeats">
 <h2>Single run versus majority vote</h2>
 <p class="lede">The pass rate you would get by rerunning the judge on these same items, for 1, 3, 5 and more calls per item with a majority vote. Dots are the average; lines hold 95% of reruns. Labels give the width in points.</p>
 <figure>
 {{ iv_svg }}
 <figcaption>Items are held fixed here, so only judge noise moves the number. Simulated from each item's observed share of passing calls.</figcaption>
 </figure>
+</section>
 <div class="scroll">
 <table>
   <thead><tr><th>Calls</th><th>Pass rate</th><th>95% of reruns</th><th>Width</th></tr></thead>
@@ -181,7 +185,7 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
 </table>
 </div>
 
-<h2>The {{ d.unstable_items|length }} least stable items</h2>
+<h2 id="unstable">The {{ d.unstable_items|length }} least stable items</h2>
 {% if d.unstable_items %}
 <p class="lede">Sorted by flip rate, then by how close the split is. Open an item to see the text and one reason the judge gave for each verdict.</p>
 <div class="scroll">
